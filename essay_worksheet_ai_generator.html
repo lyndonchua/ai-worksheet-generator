@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>H2 Economics AI Worksheet Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root{--bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#64748b;--blue:#174ea6;--green:#166534;--line:#dbe3ef;--danger:#b91c1c;--amber:#b45309}
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}
+    header{background:#0b2d5c;color:white;padding:16px 18px;position:sticky;top:0;z-index:2;box-shadow:0 2px 10px #0002}
+    header h1{font-size:20px;margin:0} header p{margin:4px 0 0;font-size:12px;opacity:.9}
+    main{max-width:1180px;margin:16px auto;padding:0 12px 30px;display:grid;grid-template-columns:360px 1fr;gap:14px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 2px 8px #00000008}
+    h2{font-size:16px;margin:0 0 10px;color:#0b2d5c} h3{font-size:14px;margin:14px 0 8px;color:#0f3d77}
+    label{display:block;font-size:12px;font-weight:700;margin:10px 0 5px;color:#334155}
+    input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px;font-size:13px;background:white;color:var(--ink)}
+    textarea{min-height:110px;resize:vertical;line-height:1.35}.small{font-size:12px;color:var(--muted);line-height:1.35}.row{display:flex;gap:8px}.row>*{flex:1}
+    button{border:0;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer;background:var(--blue);color:white}.secondary{background:#e2e8f0;color:#0f172a}.danger{background:var(--danger)}.green{background:var(--green)}.amber{background:var(--amber)}
+    button:disabled{opacity:.55;cursor:not-allowed}.pill{display:inline-block;background:#eaf2ff;color:#0b2d5c;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;margin:2px}
+    #answerText{height:220px}.outputWrap{display:flex;flex-direction:column;height:calc(100vh - 120px);min-height:600px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.status{font-size:12px;color:var(--muted);margin:8px 0;white-space:pre-wrap}.status.err{color:var(--danger)}
+    #worksheet{flex:1;overflow:auto;background:white;border:1px solid var(--line);border-radius:12px;padding:18px;line-height:1.4}.worksheet h1{font-size:20px;text-align:center;margin:0 0 12px}.worksheet h2{font-size:17px;border-bottom:2px solid #0b2d5c;padding-bottom:4px;margin-top:18px}.worksheet h3{font-size:15px;color:#111827;margin-top:14px}.worksheet table{width:100%;border-collapse:collapse;margin:10px 0}.worksheet td,.worksheet th{border:1px solid #9ca3af;padding:7px;vertical-align:top}.worksheet th{background:#eef2ff;text-align:left}.worksheet .blank{display:inline-block;min-width:120px;border-bottom:1px solid #111;height:1em}.worksheet ul{margin-top:5px}.worksheet li{margin:3px 0}.worksheet .box{border:1px solid #111;padding:10px;margin:8px 0}.worksheet .muted{color:#555}.worksheet [contenteditable="true"]{outline:0}
+    .templateBox{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:10px;font-size:12px;line-height:1.35;max-height:190px;overflow:auto}
+    @media(max-width:850px){main{grid-template-columns:1fr}.outputWrap{height:auto;min-height:0}#worksheet{min-height:520px}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>H2 Economics AI Worksheet Generator</h1>
+  <p>Upload suggested answers → AI creates NJC-style guiding-question + fill-in-the-blank worksheet.</p>
+</header>
+<main>
+  <section class="card">
+    <h2>1. Upload / paste answer</h2>
+    <label>Suggested answers file (.docx, .pdf, .txt)</label>
+    <input id="fileInput" type="file" accept=".docx,.pdf,.txt,.text" />
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" id="readFileBtn">Read file</button>
+      <button class="secondary" id="clearBtn">Clear</button>
+    </div>
+    <label>Extracted / pasted answer text</label>
+    <textarea id="answerText" placeholder="Paste suggested answer here if not uploading..."></textarea>
+
+    <h2 style="margin-top:16px">2. AI settings</h2>
+    <label>OpenRouter API Key</label>
+    <input id="apiKey" type="password" placeholder="Paste your OpenRouter API key here. It stays in this browser only." />
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" id="saveApiBtn" type="button">Save key on this device</button>
+      <button class="secondary" id="forgetApiBtn" type="button">Forget key</button>
+    </div>
+    <p class="small">For Vercel: deploy this HTML as a static site. Then open the site and paste the API key here. No Vercel environment variable is needed.</p>
+    <div class="row">
+      <div><label>Model</label><input id="model" value="openai/gpt-4o-mini" /></div>
+      <div><label>Temperature</label><input id="temperature" type="number" step="0.1" min="0" max="1" value="0.2" /></div>
+    </div>
+    <label>Worksheet style</label>
+    <select id="styleMode">
+      <option value="mixed">Guiding questions + fill-in-the-blanks</option>
+      <option value="guiding">Guiding questions only</option>
+      <option value="blanks">Fill-in-the-blanks only</option>
+    </select>
+    <label>Length</label>
+    <select id="lengthMode">
+      <option value="compact">Compact</option>
+      <option value="normal" selected>Normal</option>
+      <option value="detailed">Detailed for weaker students</option>
+    </select>
+    <label>Special instructions</label>
+    <textarea id="extra" placeholder="Example: Keep part (a) and part (b). Use same style as Rice/Butter worksheets. Do not add checklist.">Use the same style as the attached worksheets. Do not add checklist. Keep close to the suggested answer. Use clear guiding questions that help students produce the answer, and fill-in-the-blanks for key phrases.</textarea>
+
+    <div class="row" style="margin-top:12px">
+      <button id="generateBtn" class="green">Generate worksheet</button>
+    </div>
+    <div id="status" class="status"></div>
+
+    <h3>Format rules used</h3>
+    <div class="templateBox">
+      <span class="pill">Question Analysis</span><span class="pill">Schematic Plan</span><span class="pill">Step 3 table</span><br><br>
+      For each essay part:<br>
+      1. Question Analysis: Command, Content/Concept, Context.<br>
+      2. Schematic Plan / point form.<br>
+      3. Guiding Questions + “Write your answers in full here”.<br>
+      4. Fill-in-the-blanks only for important chains of analysis.<br>
+      5. No final checklist unless requested.
+    </div>
+  </section>
+
+  <section class="card outputWrap">
+    <h2>3. Generated worksheet</h2>
+    <div class="toolbar">
+      <button class="secondary" id="copyBtn">Copy HTML</button>
+      <button class="secondary" id="downloadHtmlBtn">Download HTML</button>
+      <button class="secondary" id="downloadDocBtn">Download Word-compatible .doc</button>
+      <button class="amber" id="printBtn">Print / Save PDF</button>
+      <button class="danger" id="clearOutputBtn">Clear output</button>
+    </div>
+    <div id="worksheet" class="worksheet" contenteditable="true">
+      <h1>Generated worksheet will appear here</h1>
+      <p class="muted">Upload suggested answers, add API key, then click Generate.</p>
+    </div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+function setStatus(msg, err=false){ const s=$('status'); s.textContent=msg; s.className=err?'status err':'status'; }
+function escapeHtml(s){return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+async function readFile(){
+  const f=$('fileInput').files[0];
+  if(!f){setStatus('No file selected.', true); return;}
+  setStatus('Reading file...');
+  const name=f.name.toLowerCase();
+  try{
+    let text='';
+    if(name.endsWith('.docx')){
+      const arrayBuffer=await f.arrayBuffer();
+      const result=await mammoth.extractRawText({arrayBuffer});
+      text=result.value;
+    } else if(name.endsWith('.pdf')){
+      const data=new Uint8Array(await f.arrayBuffer());
+      const pdf=await pdfjsLib.getDocument({data}).promise;
+      let pages=[];
+      for(let i=1;i<=pdf.numPages;i++){
+        const page=await pdf.getPage(i);
+        const content=await page.getTextContent();
+        pages.push(content.items.map(it=>it.str).join(' '));
+      }
+      text=pages.join('\n\n');
+    } else {
+      text=await f.text();
+    }
+    $('answerText').value=text.trim();
+    setStatus('File read successfully. Text length: '+text.length+' characters.');
+  }catch(e){setStatus('Could not read file: '+e.message,true)}
+}
+
+function buildPrompt(answerText){
+  const style=$('styleMode').value, len=$('lengthMode').value, extra=$('extra').value;
+  return `You are an experienced Singapore JC H2 Economics teacher creating an essay worksheet from a suggested answer.
+
+TASK:
+Convert the uploaded suggested answer into a worksheet in the same style as these examples:
+- H2 Economics Essay Worksheet
+- Part (a) and Part (b) separated
+- Plan / Suggested Time Breakdown if useful
+- Step 1: Question Analysis with Command Word, Content/Concept, Context
+- Step 2: Derive a Schematic Plan or Plan Your Answers in Point Form
+- Step 3: Use the schematic plan to develop your answers
+- Use tables with two columns: "Guiding Questions" and "Write your answers in full here"
+- Use guiding questions that lead students to the answer, not generic questions.
+- Use fill-in-the-blanks for key chains of analysis where helpful.
+- Keep close to the content of the suggested answer. Do not hallucinate new economics points.
+- Do not add a checklist at the end.
+- Use clear JC1 H2 Economics language.
+
+STYLE MODE: ${style}
+LENGTH: ${len}
+EXTRA INSTRUCTIONS: ${extra}
+
+OUTPUT FORMAT:
+Return clean HTML only, without markdown fences. Use <h1>, <h2>, <h3>, <table>, <tr>, <td>, <ul>, <li>, <p>, <strong>. Make it printable and editable.
+
+SUGGESTED ANSWER TEXT:
+${answerText}`;
+}
+
+async function generate(){
+  const key=$('apiKey').value.trim();
+  const answer=$('answerText').value.trim();
+  if(!key){setStatus('Please enter OpenRouter API key.', true);return}
+  if(!answer){setStatus('Please upload or paste suggested answer text.', true);return}
+  $('generateBtn').disabled=true; setStatus('Generating worksheet with AI...');
+  try{
+    const res=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':location.href,'X-Title':'H2 Economics Worksheet Generator'},
+      body:JSON.stringify({model:$('model').value.trim(),temperature:Number($('temperature').value),messages:[{role:'user',content:buildPrompt(answer)}]})
+    });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
+    let html=data.choices?.[0]?.message?.content || '';
+    html=html.replace(/^```html\s*/i,'').replace(/^```\s*/,'').replace(/```$/,'').trim();
+    $('worksheet').innerHTML=html;
+    setStatus('Done. You can edit the worksheet directly in the preview.');
+  }catch(e){setStatus('AI generation failed: '+e.message,true)}
+  finally{$('generateBtn').disabled=false;}
+}
+
+function fullHtml(){
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>H2 Economics Worksheet</title><style>body{font-family:Arial,Helvetica,sans-serif;line-height:1.35}h1{text-align:center;font-size:20px}h2{font-size:17px;border-bottom:2px solid #111;padding-bottom:4px}h3{font-size:15px}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{border:1px solid #555;padding:7px;vertical-align:top}th{background:#eee}.blank{display:inline-block;min-width:120px;border-bottom:1px solid #111;height:1em}@media print{body{font-size:11pt}}</style></head><body>${$('worksheet').innerHTML}</body></html>`;
+}
+function download(name, content, type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),500); }
+
+window.addEventListener('DOMContentLoaded', () => {
+  const savedKey = localStorage.getItem('openrouter_api_key') || '';
+  if (savedKey) $('apiKey').value = savedKey;
+});
+
+$('saveApiBtn').onclick=()=>{
+  const key=$('apiKey').value.trim();
+  if(!key){setStatus('Paste your OpenRouter API key first.', true); return;}
+  localStorage.setItem('openrouter_api_key', key);
+  setStatus('API key saved on this device only.');
+};
+$('forgetApiBtn').onclick=()=>{
+  localStorage.removeItem('openrouter_api_key');
+  $('apiKey').value='';
+  setStatus('API key removed from this device.');
+};
+
+$('readFileBtn').onclick=readFile;
+$('generateBtn').onclick=generate;
+$('clearBtn').onclick=()=>{$('fileInput').value='';$('answerText').value='';setStatus('Cleared.')};
+$('clearOutputBtn').onclick=()=>{$('worksheet').innerHTML='<h1>Generated worksheet will appear here</h1><p class="muted">Upload suggested answers, add API key, then click Generate.</p>';};
+$('copyBtn').onclick=async()=>{await navigator.clipboard.writeText($('worksheet').innerHTML);setStatus('Copied worksheet HTML.')};
+$('downloadHtmlBtn').onclick=()=>download('h2-econs-worksheet.html', fullHtml(), 'text/html');
+$('downloadDocBtn').onclick=()=>download('h2-econs-worksheet.doc', fullHtml(), 'application/msword');
+$('printBtn').onclick=()=>{ const w=window.open('','_blank'); w.document.write(fullHtml()); w.document.close(); w.focus(); setTimeout(()=>w.print(),300); };
+</script>
+</body>
+</html>
